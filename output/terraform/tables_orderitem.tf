@@ -18,31 +18,31 @@ resource "google_bigquery_table" "mart_orderitem" {
     {
       "name": "order_id",
       "type": "INTEGER",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "FK to Order"
     },
     {
       "name": "product_id",
       "type": "INTEGER",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "FK to Product"
     },
     {
       "name": "quantity",
       "type": "INTEGER",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Number of units ordered | Must be > 0"
     },
     {
       "name": "unit_price",
       "type": "NUMERIC",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Price per unit at time of order | Must be >= 0"
     },
     {
       "name": "line_total",
       "type": "NUMERIC",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "quantity * unit_price | Derived field"
     }
   ]

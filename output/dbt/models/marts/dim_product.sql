@@ -5,9 +5,9 @@
 
 with
 
-stg_pim_product as (
+stg_<source>_product  __ TODO: identify source model as (
 
-    select * from {{ ref('stg_pim_product') }}
+    select * from {{ ref('stg_<source>_product  -- TODO: identify source model') }}
 
 ),
 
@@ -22,7 +22,7 @@ final as (
     is_active,
     created_at
 
-    from stg_pim_product
+    from stg_<source>_product__--_TODO:_identify_source_model
     -- TODO: add joins to other staging models as needed
 
 )

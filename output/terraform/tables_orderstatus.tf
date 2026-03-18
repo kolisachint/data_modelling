@@ -18,13 +18,13 @@ resource "google_bigquery_table" "stg_orderstatus" {
     {
       "name": "label",
       "type": "STRING",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Human-readable label"
     },
     {
       "name": "is_terminal",
       "type": "BOOLEAN",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "No further transitions allowed"
     }
   ]

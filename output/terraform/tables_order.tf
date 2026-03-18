@@ -18,43 +18,43 @@ resource "google_bigquery_table" "mart_order" {
     {
       "name": "order_ref",
       "type": "STRING",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Business order reference | Format: ORD-YYYYNNNNNN"
     },
     {
       "name": "customer_id",
       "type": "INTEGER",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "FK to Customer"
     },
     {
       "name": "status_code",
       "type": "STRING",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "FK to OrderStatus lookup"
     },
     {
       "name": "order_date",
       "type": "DATE",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Date order was placed"
     },
     {
       "name": "total_amount",
       "type": "NUMERIC",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Total order value (excl tax) | Must be >= 0"
     },
     {
       "name": "currency_code",
       "type": "STRING",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "ISO 4217 currency code | 3 chars, uppercase"
     },
     {
       "name": "created_at",
       "type": "TIMESTAMP",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Record creation timestamp"
     }
   ]

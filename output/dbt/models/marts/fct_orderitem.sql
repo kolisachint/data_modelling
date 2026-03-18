@@ -5,9 +5,9 @@
 
 with
 
-stg_oms_orderitem as (
+stg_<source>_orderitem  __ TODO: identify source model as (
 
-    select * from {{ ref('stg_oms_orderitem') }}
+    select * from {{ ref('stg_<source>_orderitem  -- TODO: identify source model') }}
 
 ),
 
@@ -21,7 +21,7 @@ final as (
     unit_price,
     line_total
 
-    from stg_oms_orderitem
+    from stg_<source>_orderitem__--_TODO:_identify_source_model
     -- TODO: add joins to other staging models as needed
 
 )

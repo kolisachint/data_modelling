@@ -48,8 +48,8 @@ erDiagram
         BOOL is_terminal "No further transitions allowed"
     }
 
-    Customer ||--o{ Order : "places"
-    Order ||--o{ OrderItem : "contains"
-    Product ||--o{ OrderItem : "included in"
-    OrderStatus ||--o{ Order : "classifies"
+    Order ||--o{ Customer : "Order.customer_id → Customer.customer_id"
+    Order ||--o{ OrderStatus : "Order.status_code → OrderStatus.code"
+    OrderItem ||--o{ Order : "OrderItem.order_id → Order.order_id"
+    OrderItem ||--o{ Product : "OrderItem.product_id → Product.product_id"
 ```

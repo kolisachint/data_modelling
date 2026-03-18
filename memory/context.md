@@ -10,7 +10,7 @@ Update it whenever a significant decision is made or the entity inventory change
 | Item | Value |
 |------|-------|
 | Status | Extraction complete — review open questions |
-| Source workbook | `sample_data_model.xlsx` v1.0 (2026-03-18) |
+| Source workbook | `sample_data_model.xlsx`  |
 | Last updated | 2026-03-18 |
 
 ---
@@ -42,12 +42,12 @@ Update it whenever a significant decision is made or the entity inventory change
 
 ## Relationships Summary
 
-| From        | Cardinality | To        | Label       |
-| ----------- | ----------- | --------- | ----------- |
-| Customer    | 1..N        | Order     | places      |
-| Order       | 1..N        | OrderItem | contains    |
-| Product     | 1..N        | OrderItem | included in |
-| OrderStatus | 1..N        | Order     | classifies  |
+| From      | Cardinality | To          | Label                                     |
+| --------- | ----------- | ----------- | ----------------------------------------- |
+| Order     | 1..N        | Customer    | Order.customer_id → Customer.customer_id  |
+| Order     | 1..N        | OrderStatus | Order.status_code → OrderStatus.code      |
+| OrderItem | 1..N        | Order       | OrderItem.order_id → Order.order_id       |
+| OrderItem | 1..N        | Product     | OrderItem.product_id → Product.product_id |
 
 ---
 

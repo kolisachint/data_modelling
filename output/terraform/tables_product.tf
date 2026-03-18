@@ -18,13 +18,13 @@ resource "google_bigquery_table" "mart_product" {
     {
       "name": "sku",
       "type": "STRING",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Stock keeping unit | Unique, uppercase"
     },
     {
       "name": "product_name",
       "type": "STRING",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Display name"
     },
     {
@@ -42,13 +42,13 @@ resource "google_bigquery_table" "mart_product" {
     {
       "name": "is_active",
       "type": "BOOLEAN",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Whether product is on sale | Default TRUE"
     },
     {
       "name": "created_at",
       "type": "TIMESTAMP",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Record creation timestamp"
     }
   ]

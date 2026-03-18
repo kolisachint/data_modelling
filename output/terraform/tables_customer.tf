@@ -18,19 +18,19 @@ resource "google_bigquery_table" "mart_customer" {
     {
       "name": "customer_code",
       "type": "STRING",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Business key from source CRM | Must be unique"
     },
     {
       "name": "full_name",
       "type": "STRING",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Full name"
     },
     {
       "name": "email",
       "type": "STRING",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Primary email address | Must contain @"
     },
     {
@@ -48,7 +48,7 @@ resource "google_bigquery_table" "mart_customer" {
     {
       "name": "created_at",
       "type": "TIMESTAMP",
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "description": "Record creation timestamp"
     },
     {

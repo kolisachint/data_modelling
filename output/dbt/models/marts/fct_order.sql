@@ -5,9 +5,9 @@
 
 with
 
-stg_oms_order as (
+stg_<source>_order  __ TODO: identify source model as (
 
-    select * from {{ ref('stg_oms_order') }}
+    select * from {{ ref('stg_<source>_order  -- TODO: identify source model') }}
 
 ),
 
@@ -23,7 +23,7 @@ final as (
     currency_code,
     created_at
 
-    from stg_oms_order
+    from stg_<source>_order__--_TODO:_identify_source_model
     -- TODO: add joins to other staging models as needed
 
 )

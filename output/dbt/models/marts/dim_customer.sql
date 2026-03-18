@@ -5,9 +5,9 @@
 
 with
 
-stg_crm_customer as (
+stg_<source>_customer  __ TODO: identify source model as (
 
-    select * from {{ ref('stg_crm_customer') }}
+    select * from {{ ref('stg_<source>_customer  -- TODO: identify source model') }}
 
 ),
 
@@ -23,7 +23,7 @@ final as (
     created_at,
     updated_at
 
-    from stg_crm_customer
+    from stg_<source>_customer__--_TODO:_identify_source_model
     -- TODO: add joins to other staging models as needed
 
 )

@@ -13,16 +13,24 @@ models:
           - not_null
       - name: customer_code
         description: Business key from source CRM
+        tests:
+          - not_null
       - name: full_name
         description: Full name
+        tests:
+          - not_null
       - name: email
         description: Primary email address
+        tests:
+          - not_null
       - name: phone
         description: Contact phone number
       - name: country_code
         description: ISO 3166-1 alpha-2
       - name: created_at
         description: Record creation timestamp
+        tests:
+          - not_null
       - name: updated_at
         description: Last update timestamp
 
@@ -37,16 +45,24 @@ models:
           - not_null
       - name: sku
         description: Stock keeping unit
+        tests:
+          - not_null
       - name: product_name
         description: Display name
+        tests:
+          - not_null
       - name: category
         description: Product category
       - name: unit_cost
         description: Cost price
       - name: is_active
         description: Whether product is on sale
+        tests:
+          - not_null
       - name: created_at
         description: Record creation timestamp
+        tests:
+          - not_null
 
   - name: fct_order
     description: >
@@ -59,26 +75,38 @@ models:
           - not_null
       - name: order_ref
         description: Business order reference
+        tests:
+          - not_null
       - name: customer_id
         description: FK to Customer
         tests:
+          - not_null
           - relationships:
               to: ref('customer')
               field: customer_id
       - name: status_code
         description: FK to OrderStatus lookup
         tests:
+          - not_null
           - relationships:
               to: ref('orderstatus')
               field: code
       - name: order_date
         description: Date order was placed
+        tests:
+          - not_null
       - name: total_amount
         description: Total order value (excl tax)
+        tests:
+          - not_null
       - name: currency_code
         description: ISO 4217 currency code
+        tests:
+          - not_null
       - name: created_at
         description: Record creation timestamp
+        tests:
+          - not_null
 
   - name: fct_orderitem
     description: >
@@ -92,21 +120,29 @@ models:
       - name: order_id
         description: FK to Order
         tests:
+          - not_null
           - relationships:
               to: ref('order')
               field: order_id
       - name: product_id
         description: FK to Product
         tests:
+          - not_null
           - relationships:
               to: ref('product')
               field: product_id
       - name: quantity
         description: Number of units ordered
+        tests:
+          - not_null
       - name: unit_price
         description: Price per unit at time of order
+        tests:
+          - not_null
       - name: line_total
         description: "quantity * unit_price"
+        tests:
+          - not_null
 
   - name: fct_orderstatus
     description: >
@@ -119,6 +155,10 @@ models:
           - not_null
       - name: label
         description: Human-readable label
+        tests:
+          - not_null
       - name: is_terminal
         description: No further transitions allowed
+        tests:
+          - not_null
 

@@ -23,9 +23,7 @@ Mart           (BigQuery dataset: mart_<domain> | dbt models: fct_* / dim_*)
 
 ## Source Systems
 
-- **CRM**
-- **OMS**
-- **PIM**
+_Source systems not yet defined — see `docs/open_questions.md` SRC-01._
 
 ## Entity Inventory
 
@@ -45,13 +43,4 @@ Mart           (BigQuery dataset: mart_<domain> | dbt models: fct_* / dim_*)
 - BigQuery datasets and tables are managed via Terraform.
 - `models/physical/schema.dbml` is the design-time input.
 - Terraform HCL is generated after schema is approved.
-
-## Change Log
-
-| Version | Date       | Author    | Description                                            |
-| ------- | ---------- | --------- | ------------------------------------------------------ |
-| 0.1     | 2026-01-15 | J. Smith  | Initial draft — Customer and Order entities            |
-| 0.2     | 2026-02-03 | A. Lee    | Added OrderItem and Product; first mapping pass        |
-| 0.3     | 2026-03-01 | J. Smith  | Added OrderStatus lookup; updated FK references        |
-| 1.0     | 2026-03-18 | Data Team | First complete draft submitted for architecture review |
 
