@@ -1,0 +1,124 @@
+version: 2
+
+models:
+
+  - name: dim_customer
+    description: >
+      DIM model for Customer. A person or organisation that places orders.
+    columns:
+      - name: customer_id
+        description: Surrogate key
+        tests:
+          - unique
+          - not_null
+      - name: customer_code
+        description: Business key from source CRM
+      - name: full_name
+        description: Full name
+      - name: email
+        description: Primary email address
+      - name: phone
+        description: Contact phone number
+      - name: country_code
+        description: ISO 3166-1 alpha-2
+      - name: created_at
+        description: Record creation timestamp
+      - name: updated_at
+        description: Last update timestamp
+
+  - name: dim_product
+    description: >
+      DIM model for Product. A product available for sale.
+    columns:
+      - name: product_id
+        description: Surrogate key
+        tests:
+          - unique
+          - not_null
+      - name: sku
+        description: Stock keeping unit
+      - name: product_name
+        description: Display name
+      - name: category
+        description: Product category
+      - name: unit_cost
+        description: Cost price
+      - name: is_active
+        description: Whether product is on sale
+      - name: created_at
+        description: Record creation timestamp
+
+  - name: fct_order
+    description: >
+      FCT model for Order. A transaction placed by a customer.
+    columns:
+      - name: order_id
+        description: Surrogate key
+        tests:
+          - unique
+          - not_null
+      - name: order_ref
+        description: Business order reference
+      - name: customer_id
+        description: FK to Customer
+        tests:
+          - relationships:
+              to: ref('customer')
+              field: customer_id
+      - name: status_code
+        description: FK to OrderStatus lookup
+        tests:
+          - relationships:
+              to: ref('orderstatus')
+              field: code
+      - name: order_date
+        description: Date order was placed
+      - name: total_amount
+        description: Total order value (excl tax)
+      - name: currency_code
+        description: ISO 4217 currency code
+      - name: created_at
+        description: Record creation timestamp
+
+  - name: fct_orderitem
+    description: >
+      FCT model for OrderItem. A single line in an order referencing a product.
+    columns:
+      - name: order_item_id
+        description: Surrogate key
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: FK to Order
+        tests:
+          - relationships:
+              to: ref('order')
+              field: order_id
+      - name: product_id
+        description: FK to Product
+        tests:
+          - relationships:
+              to: ref('product')
+              field: product_id
+      - name: quantity
+        description: Number of units ordered
+      - name: unit_price
+        description: Price per unit at time of order
+      - name: line_total
+        description: "quantity * unit_price"
+
+  - name: fct_orderstatus
+    description: >
+      FCT model for OrderStatus. Lookup table for order status codes.
+    columns:
+      - name: code
+        description: Status code
+        tests:
+          - unique
+          - not_null
+      - name: label
+        description: Human-readable label
+      - name: is_terminal
+        description: No further transitions allowed
+
