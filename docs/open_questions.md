@@ -49,3 +49,19 @@ Format: `[ ]` open · `[x]` resolved (add resolution note inline)
 ## Resolved
 
 _(None yet — move items here with resolution notes once answered)_
+
+---
+
+## Extracted from Workbook (sample_data_model.xlsx, 2026-03-18)
+
+### Notes / Open Items from Workbook
+
+- [ ] # | Type | Description | Owner | Status
+- [ ] 1 | Open Question | Should line_total be stored or always derived? | Data Team | Open
+- [ ] 2 | Open Question | Confirm ISO currency codes — CRM uses 3-char, OMS uses symbol | J. Smith | Open
+- [ ] 3 | TBD | Partitioning strategy for Order table — by order_date? | Platform | Open
+- [ ] 4 | TBD | dbt version to use — Core 1.8 or Cloud? | Platform | Open
+- [ ] 5 | Assumption | customer_code is stable and can be used as a join key across systems | Data Team | Review
+- [ ] 6 | Note | PIM system does not provide created_at — will default to load time | A. Lee | Accepted
+- [ ] Legend: | Open = unresolved | TBD = needs decision | Assumption = flagged | Note = informational
+

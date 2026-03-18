@@ -9,8 +9,8 @@ Update it whenever a significant decision is made or the entity inventory change
 
 | Item | Value |
 |------|-------|
-| Status | Scaffolding complete — awaiting Excel workbook |
-| Branch | `claude/excel-to-docs-ZXYrA` |
+| Status | Extraction complete — review open questions |
+| Source workbook | `sample_data_model.xlsx` v1.0 (2026-03-18) |
 | Last updated | 2026-03-18 |
 
 ---
@@ -20,53 +20,38 @@ Update it whenever a significant decision is made or the entity inventory change
 | Decision | Value | Notes |
 |----------|-------|-------|
 | Target warehouse | Google BigQuery | |
-| Transformation tool | dbt (BigQuery adapter) | Version TBD — confirm in dbt project |
-| Orchestration | Cloud Composer (Airflow) | DAGs live in Composer bucket |
-| Infrastructure | Terraform | BQ datasets/tables; HCL generated after schema approval |
-| Schema design format | DBML | Design-time only; validated at dbdiagram.io |
-| Diagram format | Mermaid (in Markdown) | GitHub-renderable |
-| ADR format | Markdown, numbered `ADR-NNN` | |
-
----
-
-## BQ Project & Dataset Naming
-
-> To be filled once confirmed with stakeholder.
-
-| Layer | Dataset name pattern | Status |
-|-------|---------------------|--------|
-| Raw / landing | `raw_<source>` | TBD |
-| Staging | `stg_<source>` | TBD |
-| Intermediate | `int_<domain>` | TBD |
-| Mart | `mart_<domain>` | TBD |
+| Transformation tool | dbt (BigQuery adapter) | Version TBD |
+| Orchestration | Cloud Composer (Airflow) | |
+| Infrastructure | Terraform | HCL generated after schema approval |
+| Schema design format | DBML | `models/physical/schema.dbml` |
+| Diagram format | Mermaid (in Markdown) | |
 
 ---
 
 ## Entity Inventory
 
-> To be populated after Excel workbook is reviewed.
-
-| Entity | Layer | Status | Notes |
-|--------|-------|--------|-------|
-| _(none yet)_ | | | |
+| Entity      | Domain    | Layer   | Description                                      |
+| ----------- | --------- | ------- | ------------------------------------------------ |
+| Customer    | Sales     | mart    | A person or organisation that places orders.     |
+| Order       | Sales     | mart    | A transaction placed by a customer.              |
+| OrderItem   | Sales     | mart    | A single line in an order referencing a product. |
+| Product     | Catalogue | mart    | A product available for sale.                    |
+| OrderStatus | Sales     | staging | Lookup table for order status codes.             |
 
 ---
 
-## Key Decisions Made
+## Relationships Summary
 
-> To be populated as decisions are recorded.
-
-| # | Decision | Date | ADR |
-|---|----------|------|-----|
-| _(none yet)_ | | | |
+| From        | Cardinality | To        | Label       |
+| ----------- | ----------- | --------- | ----------- |
+| Customer    | 1..N        | Order     | places      |
+| Order       | 1..N        | OrderItem | contains    |
+| Product     | 1..N        | OrderItem | included in |
+| OrderStatus | 1..N        | Order     | classifies  |
 
 ---
 
 ## Open Items Summary
 
 See `docs/open_questions.md` for the full list.
-High-priority items will be surfaced here.
 
-| # | Item | Owner | Due |
-|---|------|-------|-----|
-| _(none yet)_ | | | |

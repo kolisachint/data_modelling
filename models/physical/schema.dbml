@@ -1,0 +1,70 @@
+// DBML — Candidate BigQuery physical schema
+// Generated from: sample_data_model.xlsx
+// Date: 2026-03-18
+// Validate at: https://dbdiagram.io
+// BigQuery types: STRING INT64 FLOAT64 NUMERIC BOOL DATE DATETIME TIMESTAMP BYTES JSON
+
+Table Customer {
+  // A person or organisation that places orders.
+  customer_id INT64 [pk] [not null] [note: "Surrogate key"]
+  customer_code STRING [note: "Business key from source CRM | Must be unique"]
+  full_name STRING [note: "Full name"]
+  email STRING [note: "Primary email address | Must contain @"]
+  phone STRING [note: "Contact phone number"]
+  country_code STRING [note: "ISO 3166-1 alpha-2 | 2 chars, uppercase"]
+  created_at TIMESTAMP [note: "Record creation timestamp"]
+  updated_at TIMESTAMP [note: "Last update timestamp"]
+  // BQ hint: consider partitioning by created_at
+  // BQ hint: consider clustering by customer_id
+}
+
+Table Order {
+  // A transaction placed by a customer.
+  order_id INT64 [pk] [not null] [note: "Surrogate key"]
+  order_ref STRING [note: "Business order reference | Format: ORD-YYYYNNNNNN"]
+  customer_id INT64 [ref: > Customer.customer_id] [note: "FK to Customer"]
+  status_code STRING [ref: > OrderStatus.code] [note: "FK to OrderStatus lookup"]
+  order_date DATE [note: "Date order was placed"]
+  total_amount NUMERIC [note: "Total order value (excl tax) | Must be >= 0"]
+  currency_code STRING [note: "ISO 4217 currency code | 3 chars, uppercase"]
+  created_at TIMESTAMP [note: "Record creation timestamp"]
+  // BQ hint: consider partitioning by order_date
+  // BQ hint: consider clustering by order_id, customer_id, status_code
+}
+
+Table OrderItem {
+  // A single line in an order referencing a product.
+  order_item_id INT64 [pk] [not null] [note: "Surrogate key"]
+  order_id INT64 [ref: > Order.order_id] [note: "FK to Order"]
+  product_id INT64 [ref: > Product.product_id] [note: "FK to Product"]
+  quantity INT64 [note: "Number of units ordered | Must be > 0"]
+  unit_price NUMERIC [note: "Price per unit at time of order | Must be >= 0"]
+  line_total NUMERIC [note: "quantity * unit_price | Derived field"]
+  // BQ hint: consider clustering by order_item_id, order_id, product_id
+}
+
+Table Product {
+  // A product available for sale.
+  product_id INT64 [pk] [not null] [note: "Surrogate key"]
+  sku STRING [note: "Stock keeping unit | Unique, uppercase"]
+  product_name STRING [note: "Display name"]
+  category STRING [note: "Product category"]
+  unit_cost NUMERIC [note: "Cost price"]
+  is_active BOOL [note: "Whether product is on sale | Default TRUE"]
+  created_at TIMESTAMP [note: "Record creation timestamp"]
+  // BQ hint: consider partitioning by created_at
+  // BQ hint: consider clustering by product_id
+}
+
+Table OrderStatus {
+  // Lookup table for order status codes.
+  code STRING [pk] [not null] [note: "Status code"]
+  label STRING [note: "Human-readable label"]
+  is_terminal BOOL [note: "No further transitions allowed"]
+  // BQ hint: consider clustering by code
+}
+
+Ref: Customer.id > Order.id // 1..N places
+Ref: Order.id > OrderItem.id // 1..N contains
+Ref: Product.id > OrderItem.id // 1..N included in
+Ref: OrderStatus.id > Order.id // 1..N classifies
