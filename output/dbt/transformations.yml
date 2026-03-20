@@ -1,0 +1,30 @@
+# transformations.yml
+# Universal transformation registry — single source of truth for all
+# source-to-target transformation logic.
+#
+# Fields:
+#   target_entity    : BigQuery table name (snake_case)
+#   target_column    : BigQuery column name
+#   source_system    : Source system name (e.g. CRM, OMS, PIM)
+#   source_table     : Source table / object name
+#   source_column    : Source column / field name
+#   logic            : SQL expression or 'Direct' for pass-through
+#   notes            : Free-form notes for reviewers
+#   dbt_macro        : Optional dbt_utils macro name if applicable
+#   tested           : true/false — whether dbt tests cover this column
+#
+version: 2
+transformations:
+  # No mappings found in workbook.
+  # Add rows to the Mappings sheet and re-run, or edit this file directly.
+  # Example:
+  # - target_entity: customer
+  #   target_column: email
+  #   source_system: CRM
+  #   source_table:  crm_accounts
+  #   source_column: email_address
+  #   logic:         "LOWER(email_address)"
+  #   notes:         Normalise to lowercase
+  #   dbt_macro:     null
+  #   tested:        false
+
