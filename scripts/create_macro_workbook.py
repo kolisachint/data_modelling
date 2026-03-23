@@ -470,6 +470,351 @@ def build_projectwm_stream(module_names: list) -> bytes:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# TASK 4 – VBA macro source strings (3 standard modules)
+# Each string starts with the Attribute VB_Name line required by Excel.
+# Line endings are \n here; encoded to CRLF (\r\n) when building streams.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_MERMAID_SRC = '''\
+Attribute VB_Name = "Module1"
+Option Explicit
+
+' GenerateMermaidDiagram
+' Reads Tables and Columns sheets; writes Mermaid erDiagram to Mermaid_Output.
+Sub GenerateMermaidDiagram()
+    Dim wsTbl As Worksheet, wsCol As Worksheet, wsOut As Worksheet
+    Dim lastT As Long, lastC As Long
+    Dim i As Long, j As Long, outRow As Long
+    Dim tblName As String, colName As String, colType As String
+    Dim isPK As String, isFK As String, fkRef As String, descr As String
+    Dim lbl As String, dotPos As Integer, toEnt As String
+
+    Application.ScreenUpdating = False
+    On Error Resume Next
+    Set wsTbl = ThisWorkbook.Sheets("Tables")
+    Set wsCol = ThisWorkbook.Sheets("Columns")
+    On Error GoTo 0
+    If wsTbl Is Nothing Or wsCol Is Nothing Then
+        MsgBox "Sheets 'Tables' and/or 'Columns' not found.", vbExclamation
+        GoTo Cleanup
+    End If
+
+    Application.DisplayAlerts = False
+    On Error Resume Next: ThisWorkbook.Sheets("Mermaid_Output").Delete
+    On Error GoTo 0
+    Application.DisplayAlerts = True
+    Set wsOut = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+    wsOut.Name = "Mermaid_Output"
+
+    lastT = wsTbl.Cells(wsTbl.Rows.Count, 1).End(xlUp).Row
+    lastC = wsCol.Cells(wsCol.Rows.Count, 1).End(xlUp).Row
+    outRow = 1
+    wsOut.Cells(outRow, 1).Value = "erDiagram"
+    outRow = outRow + 1
+
+    For i = 2 To lastT
+        tblName = Trim(CStr(wsTbl.Cells(i, 1).Value))
+        If tblName = "" Then GoTo NextEntity
+        wsOut.Cells(outRow, 1).Value = "    " & tblName & " {"
+        outRow = outRow + 1
+        For j = 2 To lastC
+            If Trim(CStr(wsCol.Cells(j, 1).Value)) = tblName Then
+                colName = Trim(CStr(wsCol.Cells(j, 2).Value))
+                colType = Trim(CStr(wsCol.Cells(j, 3).Value))
+                isPK    = Trim(CStr(wsCol.Cells(j, 5).Value))
+                isFK    = Trim(CStr(wsCol.Cells(j, 6).Value))
+                descr   = Trim(CStr(wsCol.Cells(j, 8).Value))
+                lbl = ""
+                If UCase(isPK) = "YES" Then lbl = "PK "
+                If UCase(isFK) = "YES" Then lbl = lbl & "FK "
+                lbl = Trim(lbl & descr)
+                If lbl <> "" Then
+                    wsOut.Cells(outRow, 1).Value = "        " & colType & " " & colName & " " & Chr(34) & lbl & Chr(34)
+                Else
+                    wsOut.Cells(outRow, 1).Value = "        " & colType & " " & colName
+                End If
+                outRow = outRow + 1
+            End If
+        Next j
+        wsOut.Cells(outRow, 1).Value = "    }"
+        outRow = outRow + 1
+NextEntity:
+    Next i
+
+    wsOut.Cells(outRow, 1).Value = ""
+    outRow = outRow + 1
+
+    For j = 2 To lastC
+        If UCase(Trim(CStr(wsCol.Cells(j, 6).Value))) = "YES" Then
+            fkRef   = Trim(CStr(wsCol.Cells(j, 7).Value))
+            tblName = Trim(CStr(wsCol.Cells(j, 1).Value))
+            colName = Trim(CStr(wsCol.Cells(j, 2).Value))
+            If fkRef <> "" Then
+                dotPos = InStr(fkRef, ".")
+                If dotPos > 0 Then
+                    toEnt = Left(fkRef, dotPos - 1)
+                Else
+                    toEnt = fkRef
+                End If
+                wsOut.Cells(outRow, 1).Value = "    " & tblName & " ||--o{ " & toEnt & " : " & Chr(34) & colName & " -> " & fkRef & Chr(34)
+                outRow = outRow + 1
+            End If
+        End If
+    Next j
+
+    wsOut.Columns(1).AutoFit
+    wsOut.Activate
+    wsOut.Cells(1, 1).Select
+    MsgBox "Mermaid erDiagram generated!" & Chr(10) & "See the Mermaid_Output sheet.", vbInformation, "Done"
+Cleanup:
+    Application.ScreenUpdating = True
+End Sub
+'''
+
+_TERRAFORM_SRC = '''\
+Attribute VB_Name = "Module2"
+Option Explicit
+
+' GenerateTerraformBQSchema
+' Reads Tables and Columns sheets; writes Terraform HCL to Terraform_Output.
+Sub GenerateTerraformBQSchema()
+    Dim wsTbl As Worksheet, wsCol As Worksheet, wsOut As Worksheet
+    Dim lastT As Long, lastC As Long
+    Dim i As Long, j As Long, outRow As Long, colIdx As Long, colCount As Long
+    Dim tblName As String, tblDesc As String, layer As String, tfName As String
+    Dim colName As String, colType As String, nullable As String, isPK As String
+    Dim descr As String, bizRule As String, bqType As String, mode As String
+    Dim fullDesc As String, firstTS As String, pkCol As String, comma As String
+
+    Application.ScreenUpdating = False
+    On Error Resume Next
+    Set wsTbl = ThisWorkbook.Sheets("Tables")
+    Set wsCol = ThisWorkbook.Sheets("Columns")
+    On Error GoTo 0
+    If wsTbl Is Nothing Or wsCol Is Nothing Then
+        MsgBox "Sheets 'Tables' and/or 'Columns' not found.", vbExclamation
+        GoTo Cleanup
+    End If
+
+    Application.DisplayAlerts = False
+    On Error Resume Next: ThisWorkbook.Sheets("Terraform_Output").Delete
+    On Error GoTo 0
+    Application.DisplayAlerts = True
+    Set wsOut = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+    wsOut.Name = "Terraform_Output"
+
+    lastT = wsTbl.Cells(wsTbl.Rows.Count, 1).End(xlUp).Row
+    lastC = wsCol.Cells(wsCol.Rows.Count, 1).End(xlUp).Row
+    outRow = 1
+
+    For i = 2 To lastT
+        tblName = Trim(CStr(wsTbl.Cells(i, 1).Value))
+        If tblName = "" Then GoTo NextTFEntity
+        tblDesc = Trim(CStr(wsTbl.Cells(i, 2).Value))
+        layer   = Trim(CStr(wsTbl.Cells(i, 4).Value))
+        If layer = "" Then layer = "mart"
+        tfName  = LCase(tblName)
+        firstTS = "": pkCol = ""
+        colCount = 0
+        For j = 2 To lastC
+            If Trim(CStr(wsCol.Cells(j, 1).Value)) = tblName Then colCount = colCount + 1
+        Next j
+
+        wsOut.Cells(outRow, 1).Value = "resource " & Chr(34) & "google_bigquery_table" & Chr(34) & " " & Chr(34) & layer & "_" & tfName & Chr(34) & " {"
+        outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "  dataset_id = google_bigquery_dataset." & layer & ".dataset_id"
+        outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "  table_id   = " & Chr(34) & tfName & Chr(34)
+        outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "  project     = var.project"
+        outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "  description = " & Chr(34) & tblDesc & Chr(34)
+        outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "  schema = jsonencode(["
+        outRow = outRow + 1
+
+        colIdx = 0
+        For j = 2 To lastC
+            If Trim(CStr(wsCol.Cells(j, 1).Value)) = tblName Then
+                colName  = Trim(CStr(wsCol.Cells(j, 2).Value))
+                colType  = UCase(Trim(CStr(wsCol.Cells(j, 3).Value)))
+                nullable = Trim(CStr(wsCol.Cells(j, 4).Value))
+                isPK     = Trim(CStr(wsCol.Cells(j, 5).Value))
+                descr    = Trim(CStr(wsCol.Cells(j, 8).Value))
+                bizRule  = Trim(CStr(wsCol.Cells(j, 9).Value))
+                Select Case colType
+                    Case "INT64", "INTEGER", "INT", "BIGINT": bqType = "INTEGER"
+                    Case "FLOAT64", "FLOAT", "REAL":          bqType = "FLOAT"
+                    Case "NUMERIC", "DECIMAL":                bqType = "NUMERIC"
+                    Case "BOOL", "BOOLEAN":                   bqType = "BOOLEAN"
+                    Case "DATE":                              bqType = "DATE"
+                    Case "TIMESTAMP", "DATETIME":             bqType = "TIMESTAMP"
+                    Case Else:                                bqType = "STRING"
+                End Select
+                If UCase(nullable) = "NO" Then mode = "REQUIRED" Else mode = "NULLABLE"
+                If UCase(isPK) = "YES" And pkCol = "" Then pkCol = colName
+                If bqType = "TIMESTAMP" And firstTS = "" Then firstTS = colName
+                fullDesc = descr
+                If bizRule <> "" Then fullDesc = fullDesc & " | " & bizRule
+                colIdx = colIdx + 1
+                If colIdx < colCount Then comma = "," Else comma = ""
+                wsOut.Cells(outRow, 1).Value = "    { " & Chr(34) & "name" & Chr(34) & ": " & Chr(34) & colName & Chr(34) & ", " & Chr(34) & "type" & Chr(34) & ": " & Chr(34) & bqType & Chr(34) & ", " & Chr(34) & "mode" & Chr(34) & ": " & Chr(34) & mode & Chr(34) & ", " & Chr(34) & "description" & Chr(34) & ": " & Chr(34) & fullDesc & Chr(34) & " }" & comma
+                outRow = outRow + 1
+            End If
+        Next j
+
+        wsOut.Cells(outRow, 1).Value = "  ])"
+        outRow = outRow + 1
+        If firstTS <> "" Then
+            wsOut.Cells(outRow, 1).Value = "  time_partitioning { type = " & Chr(34) & "DAY" & Chr(34) & " field = " & Chr(34) & firstTS & Chr(34) & " }"
+            outRow = outRow + 1
+        End If
+        If pkCol <> "" Then
+            wsOut.Cells(outRow, 1).Value = "  clustering = [" & Chr(34) & pkCol & Chr(34) & "]"
+            outRow = outRow + 1
+        End If
+        wsOut.Cells(outRow, 1).Value = "  labels = { entity = " & Chr(34) & tfName & Chr(34) & ", layer = " & Chr(34) & layer & Chr(34) & ", managed_by = " & Chr(34) & "terraform" & Chr(34) & " }"
+        outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "}"
+        outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = ""
+        outRow = outRow + 1
+NextTFEntity:
+    Next i
+
+    wsOut.Columns(1).AutoFit
+    wsOut.Activate
+    wsOut.Cells(1, 1).Select
+    MsgBox "Terraform BQ schema generated!" & Chr(10) & "See the Terraform_Output sheet.", vbInformation, "Done"
+Cleanup:
+    Application.ScreenUpdating = True
+End Sub
+'''
+
+_DBT_SRC = '''\
+Attribute VB_Name = "Module3"
+Option Explicit
+
+' GenerateDbtModel
+' Reads Tables and Columns sheets; writes transformations.yml and
+' dbt staging SQL stubs to DBT_Output.
+Sub GenerateDbtModel()
+    Dim wsTbl As Worksheet, wsCol As Worksheet, wsOut As Worksheet
+    Dim lastT As Long, lastC As Long
+    Dim i As Long, j As Long, outRow As Long
+    Dim tblName As String, tblDesc As String, srcSys As String
+    Dim colName As String, isPK As String, descr As String
+    Dim srcLow As String, entLow As String, lastColName As String
+
+    Application.ScreenUpdating = False
+    On Error Resume Next
+    Set wsTbl = ThisWorkbook.Sheets("Tables")
+    Set wsCol = ThisWorkbook.Sheets("Columns")
+    On Error GoTo 0
+    If wsTbl Is Nothing Or wsCol Is Nothing Then
+        MsgBox "Sheets 'Tables' and/or 'Columns' not found.", vbExclamation
+        GoTo Cleanup
+    End If
+
+    Application.DisplayAlerts = False
+    On Error Resume Next: ThisWorkbook.Sheets("DBT_Output").Delete
+    On Error GoTo 0
+    Application.DisplayAlerts = True
+    Set wsOut = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+    wsOut.Name = "DBT_Output"
+
+    lastT = wsTbl.Cells(wsTbl.Rows.Count, 1).End(xlUp).Row
+    lastC = wsCol.Cells(wsCol.Rows.Count, 1).End(xlUp).Row
+    outRow = 1
+
+    ' -- PART A: transformations.yml ------------------------------------------
+    wsOut.Cells(outRow, 1).Value = "# ===== PART A: transformations.yml =====": outRow = outRow + 1
+    wsOut.Cells(outRow, 1).Value = "version: 2":                                outRow = outRow + 1
+    wsOut.Cells(outRow, 1).Value = "transformations:":                          outRow = outRow + 1
+
+    For i = 2 To lastT
+        tblName = Trim(CStr(wsTbl.Cells(i, 1).Value))
+        If tblName = "" Then GoTo NextYaml
+        entLow = LCase(tblName)
+        For j = 2 To lastC
+            If Trim(CStr(wsCol.Cells(j, 1).Value)) = tblName Then
+                colName = Trim(CStr(wsCol.Cells(j, 2).Value))
+                isPK    = Trim(CStr(wsCol.Cells(j, 5).Value))
+                descr   = Trim(CStr(wsCol.Cells(j, 8).Value))
+                wsOut.Cells(outRow, 1).Value = "  - target_entity: " & entLow:   outRow = outRow + 1
+                wsOut.Cells(outRow, 1).Value = "    target_column: " & colName:  outRow = outRow + 1
+                wsOut.Cells(outRow, 1).Value = "    source_system: " & Chr(34) & Chr(34): outRow = outRow + 1
+                wsOut.Cells(outRow, 1).Value = "    source_table:  " & Chr(34) & Chr(34): outRow = outRow + 1
+                wsOut.Cells(outRow, 1).Value = "    source_column: " & colName:  outRow = outRow + 1
+                wsOut.Cells(outRow, 1).Value = "    logic:         Direct":      outRow = outRow + 1
+                wsOut.Cells(outRow, 1).Value = "    notes:         " & Chr(34) & descr & Chr(34): outRow = outRow + 1
+                If UCase(isPK) = "YES" Then
+                    wsOut.Cells(outRow, 1).Value = "    tested:        true"
+                Else
+                    wsOut.Cells(outRow, 1).Value = "    tested:        false"
+                End If
+                outRow = outRow + 1
+            End If
+        Next j
+NextYaml:
+    Next i
+
+    outRow = outRow + 1
+
+    ' -- PART B: dbt staging SQL -----------------------------------------------
+    wsOut.Cells(outRow, 1).Value = "# ===== PART B: dbt Staging SQL Model Stubs =====": outRow = outRow + 1
+
+    For i = 2 To lastT
+        tblName = Trim(CStr(wsTbl.Cells(i, 1).Value))
+        If tblName = "" Then GoTo NextSQL
+        tblDesc = Trim(CStr(wsTbl.Cells(i, 2).Value))
+        srcSys  = Trim(CStr(wsTbl.Cells(i, 3).Value))
+        If srcSys = "" Then srcSys = "src"
+        srcLow = LCase(srcSys): entLow = LCase(tblName)
+
+        lastColName = ""
+        For j = 2 To lastC
+            If Trim(CStr(wsCol.Cells(j, 1).Value)) = tblName Then
+                lastColName = Trim(CStr(wsCol.Cells(j, 2).Value))
+            End If
+        Next j
+
+        wsOut.Cells(outRow, 1).Value = "-- stg_" & srcLow & "_" & entLow & ".sql": outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "-- " & tblDesc:                             outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "with source as (":                          outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "    select * from {{ source('" & srcLow & "', '" & entLow & "') }}": outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "),":                                        outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "renamed as (":                              outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "    select":                                outRow = outRow + 1
+        For j = 2 To lastC
+            If Trim(CStr(wsCol.Cells(j, 1).Value)) = tblName Then
+                colName = Trim(CStr(wsCol.Cells(j, 2).Value))
+                If colName = lastColName Then
+                    wsOut.Cells(outRow, 1).Value = "        " & colName
+                Else
+                    wsOut.Cells(outRow, 1).Value = "        " & colName & ","
+                End If
+                outRow = outRow + 1
+            End If
+        Next j
+        wsOut.Cells(outRow, 1).Value = "    from source":  outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = ")":                outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "select * from renamed": outRow = outRow + 1
+        wsOut.Cells(outRow, 1).Value = "":                 outRow = outRow + 1
+NextSQL:
+    Next i
+
+    wsOut.Columns(1).AutoFit
+    wsOut.Activate
+    wsOut.Cells(1, 1).Select
+    MsgBox "dbt model generated!" & Chr(10) & "See the DBT_Output sheet." & Chr(10) & "Part A: transformations.yml" & Chr(10) & "Part B: staging SQL stubs", vbInformation, "Done"
+Cleanup:
+    Application.ScreenUpdating = True
+End Sub
+'''
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Self-test for Task 3
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -517,7 +862,113 @@ def _task1_selftest():
     print("TASK 1 PASS — vba_compress/vba_decompress round-trip OK")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# TASK 5 – Assemble vbaProject.bin
+#
+# Layout (FAT12 compound file with 9 streams):
+#   Root Entry
+#   ├─ VBA/                   (Storage)
+#   │   ├─ _VBA_PROJECT       (raw – opaque performance cache, no source)
+#   │   ├─ dir                (compressed dir stream)
+#   │   ├─ Module1            (compressed VBA source for Mermaid)
+#   │   ├─ Module2            (compressed VBA source for Terraform)
+#   │   └─ Module3            (compressed VBA source for dbt)
+#   ├─ PROJECT                (text, UTF-8)
+#   └─ PROJECTwm              (Unicode name map)
+#
+# The _VBA_PROJECT stream is the compiled p-code cache.  Excel regenerates it
+# when it opens the file, so it is safe to emit a valid but empty stub.
+# The MS-OVBA spec (2.3.4.1) says the stream MUST start with the magic bytes
+# 0x61 0x08 followed by two reserved bytes 0x00 0x00.
+# ─────────────────────────────────────────────────────────────────────────────
+
+import io
+
+_VBA_PROJECT_STUB = b'\x61\x08\x00\x00'   # magic + 2 reserved bytes
+
+
+def _module_stream(vba_src: str) -> bytes:
+    """
+    Build an MS-OVBA module stream for one VBA module.
+
+    Structure (MODULEOFFSET points to where the compressed source starts):
+        offset 0x00: MODULEOFFSET record (4 LE bytes) – offset of compressed text
+        Then any number of additional records can precede the compressed text.
+        We use the simplest legal layout accepted by Excel:
+            bytes 0–3  : u32 LE = offset to compressed text (= 8, after 8-byte header)
+            bytes 4–7  : 4 zero bytes (padding / reserved area)
+            bytes 8+   : compressed source
+    """
+    compressed = vba_compress(vba_src.replace('\n', '\r\n').encode('latin-1'))
+    header = struct.pack('<II', 8, 0)       # offset=8, reserved=0
+    return header + compressed
+
+
+def build_vba_project_bin() -> bytes:
+    """
+    Build and return the complete vbaProject.bin bytes as an OLE2 compound
+    document.  Streams are inserted in FAT order via build_ole2_cfb().
+    """
+    # ── module source streams ────────────────────────────────────────────────
+    mod1_stream = _module_stream(_MERMAID_SRC)
+    mod2_stream = _module_stream(_TERRAFORM_SRC)
+    mod3_stream = _module_stream(_DBT_SRC)
+
+    module_names = ['Module1', 'Module2', 'Module3']
+    module_streams = [mod1_stream, mod2_stream, mod3_stream]
+
+    # Compute the MODULEOFFSET for each module.
+    # The dir stream references each module by its stream offset (the 4-byte
+    # value at bytes 0-3 of the module stream – which we fixed at 8 above).
+    # build_dir_stream_raw() already writes the correct MODULEOFFSET record
+    # value (8) for every module when we call it with the same module names.
+
+    # ── assemble all streams for OLE2 builder ───────────────────────────────
+    dir_raw  = build_dir_stream_raw(module_names)
+    dir_compressed = vba_compress(dir_raw)
+
+    project_bytes = build_project_stream(module_names)
+    projectwm_bytes = build_projectwm_stream(module_names)
+
+    # build_ole2() uses flat dict keys: 'VBA/Name' for VBA sub-storage,
+    # plain 'Name' for root-level streams.
+    stream_map = {
+        'VBA/_VBA_PROJECT': _VBA_PROJECT_STUB,
+        'VBA/dir':          dir_compressed,
+        'VBA/Module1':      mod1_stream,
+        'VBA/Module2':      mod2_stream,
+        'VBA/Module3':      mod3_stream,
+        'PROJECT':          project_bytes,
+        'PROJECTwm':        projectwm_bytes,
+    }
+
+    return build_ole2(stream_map)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Self-test for Task 5
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _task5_selftest():
+    data = build_vba_project_bin()
+    # Must start with OLE2 magic
+    assert data[:8] == b'\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1', \
+        f"Bad OLE2 magic: {data[:8]!r}"
+    # Must be a multiple of 512 bytes (sector size)
+    assert len(data) % 512 == 0, \
+        f"Length {len(data)} not a multiple of 512"
+    # Must be large enough to be a real CFB
+    assert len(data) >= 7 * 512, \
+        f"Suspiciously small: {len(data)} bytes"
+    # PROJECT stream (uncompressed text) must appear verbatim
+    assert b'Module=Module1' in data, "Module1 ref not in binary"
+    assert b'Module=Module2' in data, "Module2 ref not in binary"
+    assert b'Module=Module3' in data, "Module3 ref not in binary"
+    print(f"TASK 5 PASS — vbaProject.bin assembled OK ({len(data)} bytes)")
+
+
 if __name__ == "__main__":
     _task1_selftest()
     _task2_selftest()
     _task3_selftest()
+    _task5_selftest()
