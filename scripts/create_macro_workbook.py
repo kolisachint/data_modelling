@@ -399,6 +399,100 @@ def _task2_selftest():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# TASK 3 – VBA stream builders: dir, PROJECT, PROJECTwm
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _rec(id_: int, data: bytes) -> bytes:
+    """Encode one dir-stream record: WORD(id) + DWORD(size) + data."""
+    return struct.pack('<HI', id_, len(data)) + data
+
+
+def build_dir_stream_raw(module_names: list) -> bytes:
+    """Build the *uncompressed* VBA dir stream for the given module names."""
+    b = bytearray()
+    b += _rec(0x0001, struct.pack('<I', 1))
+    b += _rec(0x0002, struct.pack('<I', 0x0409))
+    b += _rec(0x0014, struct.pack('<I', 0x0409))
+    b += _rec(0x0003, struct.pack('<H', 1252))
+    b += _rec(0x0004, b'VBAProject')
+    b += _rec(0x0005, b'')
+    b += _rec(0x0040, b'')
+    b += _rec(0x0006, b'')
+    b += _rec(0x003D, b'')
+    b += _rec(0x0007, struct.pack('<I', 0))
+    b += _rec(0x0008, struct.pack('<I', 0))
+    b += struct.pack('<HI', 0x0009, 4)
+    b += struct.pack('<I', 1361)
+    b += struct.pack('<H', 5)
+    b += _rec(0x000C, b'')
+    b += _rec(0x003C, b'')
+    b += _rec(0x000F, struct.pack('<H', len(module_names)))
+    b += _rec(0x0013, struct.pack('<H', 0xFFFF))
+    for name in module_names:
+        nb = name.encode('windows-1252')
+        nu = name.encode('utf-16-le')
+        b += _rec(0x0019, nb)
+        b += _rec(0x0031, nu)
+        b += _rec(0x001A, nb)
+        b += _rec(0x0032, nu)
+        b += _rec(0x001C, b'')
+        b += _rec(0x0048, b'')
+        b += _rec(0x0031, struct.pack('<I', 0))
+        b += _rec(0x001E, struct.pack('<I', 0))
+        b += _rec(0x002C, struct.pack('<H', 0xFFFF))
+        b += _rec(0x0021, b'')
+        b += struct.pack('<HI', 0x002B, 0)
+    b += struct.pack('<HI', 0x0010, 0)
+    return bytes(b)
+
+
+def build_project_stream(module_names: list) -> bytes:
+    """Build the plaintext PROJECT stream."""
+    lines = [
+        'ID="{00000000-0000-0000-0000-000000000000}"',
+        'Document=ThisWorkbook/&H00000000',
+    ]
+    for name in module_names:
+        lines.append(f'Module={name}')
+    lines += ['HelpContextID=0', 'VersionCompatible32="393222000"',
+              'CMG=""', 'DPB=""', 'GC=""', '']
+    return '\r\n'.join(lines).encode('windows-1252')
+
+
+def build_projectwm_stream(module_names: list) -> bytes:
+    """Build the PROJECTwm stream (MBCS ↔ UTF-16LE name pairs)."""
+    b = bytearray()
+    for name in module_names:
+        b += name.encode('windows-1252') + b'\x00'
+        b += name.encode('utf-16-le')    + b'\x00\x00'
+    b += b'\x00'
+    return bytes(b)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Self-test for Task 3
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _task3_selftest():
+    names = ['Module1', 'Module2', 'Module3']
+    raw = build_dir_stream_raw(names)
+    assert raw[0:6] == b'\x01\x00\x04\x00\x00\x00', f"Bad PROJECTSYSKIND header: {raw[0:6]!r}"
+    assert b'Module1' in raw
+    assert b'Module3' in raw
+    assert b'VBAProject' in raw
+    proj = build_project_stream(names)
+    assert b'Module=Module1' in proj
+    assert b'Module=Module3' in proj
+    assert b'VersionCompatible32' in proj
+    pwm = build_projectwm_stream(names)
+    assert b'Module1\x00' in pwm
+    assert b'M\x00o\x00d\x00u\x00l\x00e\x001\x00' in pwm
+    compressed = vba_compress(raw)
+    assert vba_decompress(compressed) == raw
+    print("TASK 3 PASS — dir/PROJECT/PROJECTwm streams built and verified OK")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Self-test for Task 1 (run when executed directly)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -426,3 +520,4 @@ def _task1_selftest():
 if __name__ == "__main__":
     _task1_selftest()
     _task2_selftest()
+    _task3_selftest()
