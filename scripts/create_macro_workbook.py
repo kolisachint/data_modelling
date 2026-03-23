@@ -967,8 +967,398 @@ def _task5_selftest():
     print(f"TASK 5 PASS — vbaProject.bin assembled OK ({len(data)} bytes)")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# TASK 6 – XLSM assembler + main()
+#
+# An .xlsm file is a ZIP archive (Open Packaging Convention) containing:
+#   [Content_Types].xml
+#   _rels/.rels
+#   xl/workbook.xml
+#   xl/_rels/workbook.xml.rels
+#   xl/worksheets/sheet1.xml   (Tables)
+#   xl/worksheets/sheet2.xml   (Columns)
+#   xl/sharedStrings.xml
+#   xl/styles.xml
+#   xl/vbaProject.bin          (the OLE2 blob built in Task 5)
+#   docProps/app.xml
+#   docProps/core.xml
+#
+# All XML is written as plain UTF-8 strings; the ZIP is assembled with
+# Python's zipfile module (deflate compression for XML, store for .bin).
+# ─────────────────────────────────────────────────────────────────────────────
+
+import zipfile
+import datetime
+
+
+# ── XML helpers ──────────────────────────────────────────────────────────────
+
+def _x(tag: str, attrs: dict = None, children=(), text: str = '') -> str:
+    """Minimal XML element builder (returns a string)."""
+    attr_str = ''
+    if attrs:
+        attr_str = ' ' + ' '.join(f'{k}="{v}"' for k, v in attrs.items())
+    inner = text + ''.join(children)
+    if inner:
+        return f'<{tag}{attr_str}>{inner}</{tag}>'
+    return f'<{tag}{attr_str}/>'
+
+
+def _xml_decl(root: str) -> str:
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + root
+
+
+# ── Static XML parts ─────────────────────────────────────────────────────────
+
+_CONTENT_TYPES = _xml_decl(_x(
+    'Types',
+    {'xmlns': 'http://schemas.openxmlformats.org/package/2006/content-types'},
+    children=[
+        _x('Default', {'Extension': 'rels',
+            'ContentType': 'application/vnd.openxmlformats-package.relationships+xml'}),
+        _x('Default', {'Extension': 'xml',
+            'ContentType': 'application/xml'}),
+        _x('Override', {'PartName': '/xl/workbook.xml',
+            'ContentType': 'application/vnd.ms-excel.sheet.macroEnabled.main+xml'}),
+        _x('Override', {'PartName': '/xl/worksheets/sheet1.xml',
+            'ContentType': 'application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml'}),
+        _x('Override', {'PartName': '/xl/worksheets/sheet2.xml',
+            'ContentType': 'application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml'}),
+        _x('Override', {'PartName': '/xl/sharedStrings.xml',
+            'ContentType': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml'}),
+        _x('Override', {'PartName': '/xl/styles.xml',
+            'ContentType': 'application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml'}),
+        _x('Override', {'PartName': '/xl/vbaProject.bin',
+            'ContentType': 'application/vnd.ms-office.activeX+xml'}),
+        _x('Override', {'PartName': '/docProps/app.xml',
+            'ContentType': 'application/vnd.openxmlformats-officedocument.extended-properties+xml'}),
+        _x('Override', {'PartName': '/docProps/core.xml',
+            'ContentType': 'application/vnd.openxmlformats-package.core-properties+xml'}),
+    ]
+))
+
+_ROOT_RELS = _xml_decl(_x(
+    'Relationships',
+    {'xmlns': 'http://schemas.openxmlformats.org/package/2006/relationships'},
+    children=[
+        _x('Relationship', {'Id': 'rId1', 'Type':
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
+            'Target': 'xl/workbook.xml'}),
+        _x('Relationship', {'Id': 'rId2', 'Type':
+            'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties',
+            'Target': 'docProps/core.xml'}),
+        _x('Relationship', {'Id': 'rId3', 'Type':
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties',
+            'Target': 'docProps/app.xml'}),
+    ]
+))
+
+_WB_RELS = _xml_decl(_x(
+    'Relationships',
+    {'xmlns': 'http://schemas.openxmlformats.org/package/2006/relationships'},
+    children=[
+        _x('Relationship', {'Id': 'rId1', 'Type':
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet',
+            'Target': 'worksheets/sheet1.xml'}),
+        _x('Relationship', {'Id': 'rId2', 'Type':
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet',
+            'Target': 'worksheets/sheet2.xml'}),
+        _x('Relationship', {'Id': 'rId3', 'Type':
+            'http://schemas.microsoft.com/office/2006/relationships/vbaProject',
+            'Target': 'vbaProject.bin'}),
+        _x('Relationship', {'Id': 'rId4', 'Type':
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings',
+            'Target': 'sharedStrings.xml'}),
+        _x('Relationship', {'Id': 'rId5', 'Type':
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles',
+            'Target': 'styles.xml'}),
+    ]
+))
+
+_WORKBOOK = _xml_decl(_x(
+    'workbook',
+    {'xmlns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+     'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+     'xmlns:mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+     'mc:Ignorable': 'x15',
+     'xmlns:x15': 'http://schemas.microsoft.com/office/spreadsheetml/2010/11/main'},
+    children=[
+        _x('fileVersion', {'appName': 'xl', 'lastEdited': '7',
+                           'lowestEdited': '7', 'rupBuild': '22228'}),
+        _x('workbookPr', {'defaultThemeVersion': '166925',
+                          'codeName': 'ThisWorkbook'}),
+        _x('sheets', children=[
+            _x('sheet', {'name': 'Tables',  'sheetId': '1', 'r:id': 'rId1'}),
+            _x('sheet', {'name': 'Columns', 'sheetId': '2', 'r:id': 'rId2'}),
+        ]),
+        _x('calcPr', {'calcId': '191029'}),
+    ]
+))
+
+_STYLES = _xml_decl(_x(
+    'styleSheet',
+    {'xmlns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'},
+    children=[
+        _x('fonts', {'count': '2'}, children=[
+            _x('font', children=[
+                _x('sz', {'val': '11'}), _x('name', {'val': 'Calibri'})]),
+            _x('font', children=[
+                _x('b'), _x('sz', {'val': '11'}), _x('name', {'val': 'Calibri'})]),
+        ]),
+        _x('fills', {'count': '3'}, children=[
+            _x('fill', children=[_x('patternFill', {'patternType': 'none'})]),
+            _x('fill', children=[_x('patternFill', {'patternType': 'gray125'})]),
+            _x('fill', children=[_x('patternFill', {'patternType': 'solid'},
+                children=[_x('fgColor', {'rgb': 'FF4472C4'}),
+                           _x('bgColor', {'indexed': '64'})])]),
+        ]),
+        _x('borders', {'count': '1'}, children=[
+            _x('border', children=[
+                _x('left'), _x('right'), _x('top'), _x('bottom'), _x('diagonal')])]),
+        _x('cellStyleXfs', {'count': '1'}, children=[
+            _x('xf', {'numFmtId': '0', 'fontId': '0', 'fillId': '0', 'borderId': '0'})]),
+        _x('cellXfs', {'count': '2'}, children=[
+            _x('xf', {'numFmtId': '0', 'fontId': '0', 'fillId': '0',
+                      'borderId': '0', 'xfId': '0'}),
+            _x('xf', {'numFmtId': '0', 'fontId': '1', 'fillId': '2',
+                      'borderId': '0', 'xfId': '0', 'applyFont': '1', 'applyFill': '1'}),
+        ]),
+    ]
+))
+
+_APP_XML = _xml_decl(_x(
+    'Properties',
+    {'xmlns': 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties'},
+    children=[
+        _x('Application', text='Microsoft Excel'),
+        _x('DocSecurity', text='0'),
+        _x('ScaleCrop', text='false'),
+        _x('SharedDoc', text='false'),
+        _x('HyperlinksChanged', text='false'),
+        _x('AppVersion', text='16.0300'),
+    ]
+))
+
+
+def _core_xml() -> str:
+    now = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    return _xml_decl(_x(
+        'cp:coreProperties',
+        {'xmlns:cp': 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
+         'xmlns:dc': 'http://purl.org/dc/elements/1.1/',
+         'xmlns:dcterms': 'http://purl.org/dc/terms/',
+         'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance'},
+        children=[
+            _x('dc:creator', text='create_macro_workbook.py'),
+            _x('dcterms:created', {'xsi:type': 'dcterms:W3CDTF'}, text=now),
+            _x('dcterms:modified', {'xsi:type': 'dcterms:W3CDTF'}, text=now),
+        ]
+    ))
+
+
+# ── Sheet data builders ───────────────────────────────────────────────────────
+
+def _cell_ref(row: int, col: int) -> str:
+    """Convert 1-based (row, col) to Excel ref like A1, B3."""
+    letters = ''
+    c = col
+    while c > 0:
+        c, rem = divmod(c - 1, 26)
+        letters = chr(65 + rem) + letters
+    return f'{letters}{row}'
+
+
+def _build_sheet(headers: list[str], rows: list[list[str]]) -> str:
+    """
+    Build a worksheet XML string.
+    All cells are inline strings (t="inlineStr") to avoid shared-string
+    index management complexity.  Header row uses style 1 (bold + blue fill).
+    """
+    NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    xml_rows = []
+    # Header row
+    header_cells = []
+    for ci, h in enumerate(headers, start=1):
+        ref = _cell_ref(1, ci)
+        header_cells.append(
+            _x('c', {'r': ref, 't': 'inlineStr', 's': '1'},
+               children=[_x('is', children=[_x('t', text=h)])]))
+    xml_rows.append(_x('row', {'r': '1', 'spans': f'1:{len(headers)}'},
+                       children=header_cells))
+    # Data rows
+    for ri, row_data in enumerate(rows, start=2):
+        cells = []
+        for ci, val in enumerate(row_data, start=1):
+            ref = _cell_ref(ri, ci)
+            cells.append(
+                _x('c', {'r': ref, 't': 'inlineStr'},
+                   children=[_x('is', children=[_x('t', text=str(val))])]))
+        xml_rows.append(_x('row', {'r': str(ri), 'spans': f'1:{len(headers)}'},
+                           children=cells))
+
+    sheet_data = _x('sheetData', children=xml_rows)
+    col_widths = [_x('col', {'min': str(i), 'max': str(i), 'width': '20',
+                              'customWidth': '1'})
+                  for i in range(1, len(headers) + 1)]
+    cols_el = _x('cols', children=col_widths)
+    return _xml_decl(_x(
+        'worksheet',
+        {'xmlns': NS,
+         'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'},
+        children=[cols_el, sheet_data]
+    ))
+
+
+def _empty_shared_strings() -> str:
+    return _xml_decl(_x(
+        'sst',
+        {'xmlns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+         'count': '0', 'uniqueCount': '0'}
+    ))
+
+
+# ── Sample data ───────────────────────────────────────────────────────────────
+
+_TABLES_HEADERS = [
+    'TableName', 'Description', 'SourceSystem', 'Layer',
+    'OwnerTeam', 'RefreshFrequency', 'Notes',
+]
+
+_TABLES_ROWS = [
+    ['dim_customer',  'Customer master data',        'CRM',      'mart',    'Analytics', 'Daily',   ''],
+    ['dim_product',   'Product catalogue',           'ERP',      'mart',    'Analytics', 'Weekly',  ''],
+    ['fact_orders',   'Order transactions',          'OMS',      'mart',    'Analytics', 'Hourly',  ''],
+    ['stg_crm_acct',  'Raw CRM account extract',     'CRM',      'staging', 'DataEng',   'Daily',   ''],
+    ['stg_oms_order', 'Raw OMS order extract',       'OMS',      'staging', 'DataEng',   'Hourly',  ''],
+]
+
+_COLUMNS_HEADERS = [
+    'TableName', 'ColumnName', 'DataType', 'Nullable',
+    'IsPK', 'IsFK', 'FKReference', 'Description', 'BusinessRule',
+]
+
+_COLUMNS_ROWS = [
+    # dim_customer
+    ['dim_customer', 'customer_id',   'INT64',     'NO',  'YES', 'NO',  '',                          'Surrogate PK',        ''],
+    ['dim_customer', 'customer_key',  'STRING',    'NO',  'NO',  'NO',  '',                          'Natural key from CRM',''],
+    ['dim_customer', 'full_name',     'STRING',    'YES', 'NO',  'NO',  '',                          'Full name',           ''],
+    ['dim_customer', 'email',         'STRING',    'YES', 'NO',  'NO',  '',                          'Email address',       'Must be unique'],
+    ['dim_customer', 'created_at',    'TIMESTAMP', 'NO',  'NO',  'NO',  '',                          'Row created time',    ''],
+    # dim_product
+    ['dim_product',  'product_id',    'INT64',     'NO',  'YES', 'NO',  '',                          'Surrogate PK',        ''],
+    ['dim_product',  'product_sku',   'STRING',    'NO',  'NO',  'NO',  '',                          'SKU code',            ''],
+    ['dim_product',  'product_name',  'STRING',    'YES', 'NO',  'NO',  '',                          'Display name',        ''],
+    ['dim_product',  'unit_price',    'NUMERIC',   'YES', 'NO',  'NO',  '',                          'List price',          'Must be >= 0'],
+    # fact_orders
+    ['fact_orders',  'order_id',      'INT64',     'NO',  'YES', 'NO',  '',                          'Surrogate PK',        ''],
+    ['fact_orders',  'customer_id',   'INT64',     'NO',  'NO',  'YES', 'dim_customer.customer_id',  'FK to dim_customer',  ''],
+    ['fact_orders',  'product_id',    'INT64',     'NO',  'NO',  'YES', 'dim_product.product_id',    'FK to dim_product',   ''],
+    ['fact_orders',  'order_date',    'TIMESTAMP', 'NO',  'NO',  'NO',  '',                          'Order placed time',   ''],
+    ['fact_orders',  'quantity',      'INT64',     'NO',  'NO',  'NO',  '',                          'Units ordered',       'Must be > 0'],
+    ['fact_orders',  'total_amount',  'NUMERIC',   'NO',  'NO',  'NO',  '',                          'Line total',          ''],
+    # stg_crm_acct
+    ['stg_crm_acct', 'account_id',    'STRING',    'NO',  'YES', 'NO',  '',                          'Source PK',           ''],
+    ['stg_crm_acct', 'account_name',  'STRING',    'YES', 'NO',  'NO',  '',                          'Account name',        ''],
+    ['stg_crm_acct', '_loaded_at',    'TIMESTAMP', 'NO',  'NO',  'NO',  '',                          'ETL load time',       ''],
+    # stg_oms_order
+    ['stg_oms_order','order_ref',     'STRING',    'NO',  'YES', 'NO',  '',                          'Source PK',           ''],
+    ['stg_oms_order','order_status',  'STRING',    'YES', 'NO',  'NO',  '',                          'Order status code',   ''],
+    ['stg_oms_order','_loaded_at',    'TIMESTAMP', 'NO',  'NO',  'NO',  '',                          'ETL load time',       ''],
+]
+
+
+# ── XLSM assembler ────────────────────────────────────────────────────────────
+
+def build_xlsm(output_path: str) -> None:
+    """
+    Assemble the complete .xlsm workbook and write it to *output_path*.
+    """
+    vba_bin = build_vba_project_bin()
+
+    sheet1_xml = _build_sheet(_TABLES_HEADERS, _TABLES_ROWS)
+    sheet2_xml = _build_sheet(_COLUMNS_HEADERS, _COLUMNS_ROWS)
+
+    with zipfile.ZipFile(output_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        def _add(name: str, data, compress=True):
+            method = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
+            if isinstance(data, str):
+                data = data.encode('utf-8')
+            zf.writestr(zipfile.ZipInfo(name), data,
+                        compress_type=method)
+
+        _add('[Content_Types].xml',          _CONTENT_TYPES)
+        _add('_rels/.rels',                  _ROOT_RELS)
+        _add('xl/workbook.xml',              _WORKBOOK)
+        _add('xl/_rels/workbook.xml.rels',   _WB_RELS)
+        _add('xl/worksheets/sheet1.xml',     sheet1_xml)
+        _add('xl/worksheets/sheet2.xml',     sheet2_xml)
+        _add('xl/sharedStrings.xml',         _empty_shared_strings())
+        _add('xl/styles.xml',                _STYLES)
+        _add('xl/vbaProject.bin',            vba_bin,  compress=False)
+        _add('docProps/app.xml',             _APP_XML)
+        _add('docProps/core.xml',            _core_xml())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Self-test for Task 6
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _task6_selftest():
+    import tempfile, os
+    with tempfile.NamedTemporaryFile(suffix='.xlsm', delete=False) as tmp:
+        path = tmp.name
+    try:
+        build_xlsm(path)
+        size = os.path.getsize(path)
+        assert size > 10_000, f"Output too small: {size} bytes"
+        with zipfile.ZipFile(path) as zf:
+            names = zf.namelist()
+            assert '[Content_Types].xml' in names
+            assert 'xl/vbaProject.bin' in names
+            assert 'xl/worksheets/sheet1.xml' in names
+            assert 'xl/worksheets/sheet2.xml' in names
+            # vbaProject.bin must start with OLE2 magic
+            vba_data = zf.read('xl/vbaProject.bin')
+            assert vba_data[:8] == b'\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1'
+            # Tables sheet must contain sample data
+            s1 = zf.read('xl/worksheets/sheet1.xml').decode()
+            assert 'dim_customer' in s1
+            assert 'fact_orders' in s1
+            s2 = zf.read('xl/worksheets/sheet2.xml').decode()
+            assert 'customer_id' in s2
+            assert 'dim_customer.customer_id' in s2
+        print(f"TASK 6 PASS — xlsm assembled OK ({size:,} bytes) → {path}")
+    except Exception:
+        os.unlink(path)
+        raise
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# main()
+# ─────────────────────────────────────────────────────────────────────────────
+
+def main():
+    import argparse, os
+    parser = argparse.ArgumentParser(
+        description='Generate a macro-enabled Excel workbook (.xlsm) with '
+                    'Mermaid, Terraform, and dbt VBA generators.')
+    parser.add_argument(
+        '-o', '--output',
+        default=os.path.join(os.path.dirname(__file__),
+                             '..', 'output', 'data_dictionary_macros.xlsm'),
+        help='Output .xlsm file path (default: output/data_dictionary_macros.xlsm)')
+    args = parser.parse_args()
+
+    out = os.path.abspath(args.output)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    build_xlsm(out)
+    print(f"Written: {out}")
+
+
 if __name__ == "__main__":
     _task1_selftest()
     _task2_selftest()
     _task3_selftest()
     _task5_selftest()
+    _task6_selftest()
+    main()
